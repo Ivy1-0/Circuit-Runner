@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Circuit Runner — Robot Command Center</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #10141b;
+    --panel: #1a212c;
+    --panel-raised: #212a37;
+    --line: #2c3648;
+    --amber: #ffb454;
+    --cyan: #5eead4;
+    --danger: #ff6b6b;
+    --text: #dfe6f0;
+    --text-dim: #7c8aa0;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 20% 0%, #182030 0%, var(--bg) 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    padding:28px 16px 60px;
+    min-height:100vh;
+  }
+  .wrap{max-width:1080px;margin:0 auto;}
+
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:16px;
+  }
+  h1{
+    font-family:var(--mono);
+    font-size:26px;
+    letter-spacing:0.5px;
+    margin:0;
+    color:var(--text);
+  }
+  h1 span{color:var(--amber);}
+  .sub{font-family:var(--mono);font-size:12px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+
+  .layout{
+    display:grid;
+    grid-template-columns:1fr 340px;
+    gap:20px;
+  }
+  @media (max-width:840px){ .layout{grid-template-columns:1fr;} }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+  }
+  .panel-title{
+    font-family:var(--mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--text-dim);
+    margin:0 0 12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  /* Board */
+  #board-wrap{display:flex;flex-direction:column;align-items:center;}
+  #boardSvg{width:100%;max-width:520px;height:auto;}
+  .status-row{
+    display:flex;
+    gap:18px;
+    margin-top:14px;
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-dim);
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .status-row b{color:var(--cyan);}
+  .level-pill{
+    font-family:var(--mono);
+    font-size:12px;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    padding:4px 10px;
+    border-radius:20px;
+    color:var(--amber);
+  }
+
+  /* Command palette */
+  .cmd-btn{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:10px 12px;
+    border-radius:7px;
+    cursor:pointer;
+    margin-bottom:8px;
+    transition:border-color .15s, transform .1s;
+    text-align:left;
+  }
+  .cmd-btn:hover{border-color:var(--cyan);}
+  .cmd-btn:active{transform:scale(0.98);}
+  .cmd-icon{
+    width:22px;height:22px;flex:0 0 22px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--amber);
+  }
+
+  /* Program strip */
+  #program{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    min-height:46px;
+    background:var(--bg);
+    border:1px dashed var(--line);
+    border-radius:8px;
+    padding:8px;
+    margin-bottom:12px;
+  }
+  .prog-empty{
+    color:var(--text-dim);
+    font-family:var(--mono);
+    font-size:12px;
+    padding:6px 4px;
+  }
+  .chip{
+    font-family:var(--mono);
+    font-size:12px;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:6px 9px;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    position:relative;
+  }
+  .chip.active{
+    border-color:var(--cyan);
+    box-shadow:0 0 0 2px rgba(94,234,212,0.15), 0 0 12px rgba(94,234,212,0.35);
+    color:var(--cyan);
+  }
+  .chip.led{
+    width:6px;height:6px;border-radius:50%;background:var(--line);
+  }
+  .chip.active .led{background:var(--cyan);box-shadow:0 0 6px var(--cyan);}
+  .chip-x{
+    cursor:pointer;color:var(--text-dim);font-weight:700;padding-left:2px;
+  }
+  .chip-x:hover{color:var(--danger);}
+
+  .controls-row{display:flex;gap:8px;margin-top:6px;}
+  .btn{
+    font-family:var(--mono);
+    font-size:12px;
+    border-radius:7px;
+    border:1px solid var(--line);
+    padding:10px 14px;
+    cursor:pointer;
+    background:var(--panel-raised);
+    color:var(--text);
+    flex:1;
+    transition:filter .15s;
+  }
+  .btn:hover{filter:brightness(1.15);}
+  .btn-run{background:var(--cyan);color:#0a1512;border-color:var(--cyan);font-weight:700;}
+  .btn-clear{color:var(--text-dim);}
+  .btn-reset{color:var(--text-dim);}
+  .btn:disabled{opacity:0.5;cursor:not-allowed;}
+
+  #message{
+    margin-top:12px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    min-height:34px;
+    padding:8px 10px;
+    border-radius:7px;
+    background:var(--panel-raised);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    transition:all .2s;
+  }
+  #message.win{color:var(--cyan);border-color:var(--cyan);}
+  #message.fail{color:var(--danger);border-color:var(--danger);}
+
+  .legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    margin-top:12px;
+  }
+  .legend span{display:flex;align-items:center;gap:5px;}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CIRCUIT <span>RUNNER</span></h1>
+    <div class="sub">robot command center — program the bot, don't touch the wires</div>
+  </header>
+
+  <div class="layout">
+    <div class="panel" id="board-wrap">
+      <div class="panel-title">
+        <span>BOARD</span>
+        <span class="level-pill" id="levelPill">LEVEL 1</span>
+      </div>
+      <svg id="boardSvg" viewBox="0 0 400 400"></svg>
+      <div class="status-row">
+        <div>ENERGY: <b id="energyStat">0</b>/<b id="energyTotal">0</b></div>
+        <div>MOVES: <b id="moveStat">0</b></div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--amber)"></i>battery</span>
+        <span><i class="dot" style="background:var(--cyan)"></i>charge pad</span>
+        <span><i class="dot" style="background:var(--danger)"></i>hazard</span>
+        <span><i class="dot" style="background:#3a4459"></i>wall</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel" style="margin-bottom:16px;">
+        <div class="panel-title">COMMANDS</div>
+        <button class="cmd-btn" data-cmd="F"><span class="cmd-icon">&#8593;</span>Forward</button>
+        <button class="cmd-btn" data-cmd="L"><span class="cmd-icon">&#8630;</span>Turn Left</button>
+        <button class="cmd-btn" data-cmd="R"><span class="cmd-icon">&#8631;</span>Turn Right</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <span>PROGRAM</span>
+          <span id="progCount" style="color:var(--text-dim);font-weight:400;">0 steps</span>
+        </div>
+        <div id="program"><span class="prog-empty">// click commands to build your sequence</span></div>
+        <div class="controls-row">
+          <button class="btn btn-clear" id="clearBtn">CLEAR</button>
+          <button class="btn btn-reset" id="resetBtn">RESET BOT</button>
+        </div>
+        <div class="controls-row">
+          <button class="btn btn-run" id="runBtn">▶ RUN PROGRAM</button>
+        </div>
+        <div id="message">Standing by. Build a program and hit run.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- Level definitions ----------
+// grid coords: row 0 top. dir: 0=up,1=right,2=down,3=left
+const LEVELS = [
+  {
+    size:6,
+    start:{r:5,c:0,dir:0},
+    walls:[],
+    hazards:[],
+    batteries:[{r:3,c:0},{r:0,c:0}],
+    pad:{r:0,c:3}
+  },
+  {
+    size:6,
+    start:{r:5,c:5,dir:3},
+    walls:[{r:3,c:2},{r:2,c:2}],
+    hazards:[{r:4,c:3}],
+    batteries:[{r:5,c:2},{r:1,c:5}],
+    pad:{r:0,c:0}
+  },
+  {
+    size:7,
+    start:{r:6,c:0,dir:0},
+    walls:[{r:3,c:1},{r:3,c:2},{r:3,c:3},{r:3,c:4}],
+    hazards:[{r:1,c:0},{r:5,c:5}],
+    batteries:[{r:6,c:5},{r:0,c:6},{r:1,c:5}],
+    pad:{r:0,c:0}
+  }
+];
+
+let levelIdx = 0;
+let level, bot, program = [], collected = new Set(), running = false;
+
+const boardSvg = document.getElementById('boardSvg');
+const programEl = document.getElementById('program');
+const messageEl = document.getElementById('message');
+const energyStat = document.getElementById('energyStat');
+const energyTotal = document.getElementById('energyTotal');
+const moveStat = document.getElementById('moveStat');
+const progCount = document.getElementById('progCount');
+const levelPill = document.getElementById('levelPill');
+
+function loadLevel(i){
+  levelIdx = i;
+  level = JSON.parse(JSON.stringify(LEVELS[i]));
+  bot = {...level.start};
+  collected = new Set();
+  program = [];
+  running = false;
+  levelPill.textContent = 'LEVEL ' + (i+1);
+  energyTotal.textContent = level.batteries.length;
+  updateStats();
+  renderProgram();
+  setMessage('Standing by. Build a program and hit run.', null);
+  drawBoard();
+}
+
+function key(r,c){ return r+'_'+c; }
+function isWall(r,c){ return level.walls.some(w=>w.r===r&&w.c===c); }
+function isHazard(r,c){ return level.hazards.some(w=>w.r===r&&w.c===c); }
+function batteryAt(r,c){ return level.batteries.find(b=>b.r===r&&b.c===c && !collected.has(key(r,c))); }
+
+function updateStats(){
+  energyStat.textContent = collected.size;
+  moveStat.textContent = program.filter(c=>c==='F').length ? execCountSoFar : 0;
+}
+let execCountSoFar = 0;
+
+// ---------- Drawing ----------
+const CELL = 400;
+function drawBoard(){
+  const n = level.size;
+  const cs = CELL / n;
+  let svg = `<defs>
+    <pattern id="grid" width="${cs}" height="${cs}" patternUnits="userSpaceOnUse">
+      <rect width="${cs}" height="${cs}" fill="none" stroke="#232c3a" stroke-width="1"/>
+    </pattern>
+  </defs>`;
+  svg += `<rect x="0" y="0" width="${CELL}" height="${CELL}" fill="#141a24" rx="6"/>`;
+  svg += `<rect x="0" y="0" width="${CELL}" height="${CELL}" fill="url(#grid)" rx="6"/>`;
+
+  for(let r=0;r<n;r++){
+    for(let c=0;c<n;c++){
+      const x=c*cs, y=r*cs;
+      if(isWall(r,c)){
+        svg += `<rect x="${x+3}" y="${y+3}" width="${cs-6}" height="${cs-6}" rx="3" fill="#3a4459"/>`;
+      }
+      if(isHazard(r,c)){
+        svg += `<g opacity="0.9">
+          <path d="M${x+cs/2} ${y+8} L${x+cs-8} ${y+cs-8} L${x+8} ${y+cs-8} Z" fill="none" stroke="#ff6b6b" stroke-width="2.5"/>
+          <text x="${x+cs/2}" y="${y+cs-14}" font-family="Space Mono" font-size="${cs*0.28}" fill="#ff6b6b" text-anchor="middle">!</text>
+        </g>`;
+      }
+      const bat = level.batteries.find(b=>b.r===r&&b.c===c);
+      if(bat && !collected.has(key(r,c))){
+        svg += batteryIcon(x+cs/2, y+cs/2, cs*0.32);
+      }
+      if(level.pad.r===r && level.pad.c===c){
+        svg += `<circle cx="${x+cs/2}" cy="${y+cs/2}" r="${cs*0.38}" fill="none" stroke="#5eead4" stroke-width="2.5" stroke-dasharray="4 3"/>
+        <circle cx="${x+cs/2}" cy="${y+cs/2}" r="${cs*0.14}" fill="#5eead4" opacity="0.5"/>`;
+      }
+    }
+  }
+
+  // robot
+  const bx = bot.c*cs + cs/2, by = bot.r*cs + cs/2;
+  const rot = bot.dir*90;
+  svg += `<g transform="translate(${bx},${by}) rotate(${rot})">
+    <rect x="${-cs*0.28}" y="${-cs*0.28}" width="${cs*0.56}" height="${cs*0.56}" rx="6" fill="#212a37" stroke="#ffb454" stroke-width="2"/>
+    <circle cx="0" cy="${-cs*0.08}" r="${cs*0.06}" fill="#5eead4"/>
+    <path d="M0 ${-cs*0.28} L0 ${-cs*0.4}" stroke="#ffb454" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="${-cs*0.42}" r="3" fill="#ffb454"/>
+    <rect x="${-cs*0.16}" y="${cs*0.02}" width="${cs*0.32}" height="${cs*0.14}" rx="2" fill="#141a24"/>
+  </g>`;
+
+  boardSvg.innerHTML = svg;
+}
+
+function batteryIcon(cx,cy,s){
+  return `<g transform="translate(${cx},${cy})">
+    <rect x="${-s*0.35}" y="${-s*0.5}" width="${s*0.7}" height="${s}" rx="2" fill="none" stroke="#ffb454" stroke-width="2"/>
+    <rect x="${-s*0.15}" y="${-s*0.62}" width="${s*0.3}" height="${s*0.14}" fill="#ffb454"/>
+    <rect x="${-s*0.18}" y="${-s*0.18}" width="${s*0.36}" height="${s*0.36}" fill="#ffb454" opacity="0.85"/>
+  </g>`;
+}
+
+// ---------- Program building ----------
+document.querySelectorAll('.cmd-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(running) return;
+    program.push(btn.dataset.cmd);
+    renderProgram();
+  });
+});
+
+function renderProgram(){
+  if(program.length===0){
+    programEl.innerHTML = '<span class="prog-empty">// click commands to build your sequence</span>';
+  } else {
+    programEl.innerHTML = program.map((cmd,i)=>{
+      const label = cmd==='F' ? 'FWD' : cmd==='L' ? 'L-TURN' : 'R-TURN';
+      return `<span class="chip" data-idx="${i}"><span class="led"></span>${label}<span class="chip-x" data-remove="${i}">&times;</span></span>`;
+    }).join('');
+  }
+  progCount.textContent = program.length + (program.length===1 ? ' step' : ' steps');
+}
+
+programEl.addEventListener('click', (e)=>{
+  if(running) return;
+  const rm = e.target.getAttribute('data-remove');
+  if(rm !== null){
+    program.splice(Number(rm),1);
+    renderProgram();
+  }
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(running) return;
+  program = [];
+  renderProgram();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  if(running) return;
+  bot = {...level.start};
+  collected = new Set();
+  execCountSoFar = 0;
+  updateStats();
+  drawBoard();
+  setMessage('Bot reset to start position.', null);
+});
+
+// ---------- Execution ----------
+function setMessage(text, type){
+  messageEl.textContent = text;
+  messageEl.className = type ? type : '';
+}
+
+async function runProgram(){
+  if(running || program.length===0) return;
+  running = true;
+  document.getElementById('runBtn').disabled = true;
+  bot = {...level.start};
+  collected = new Set();
+  execCountSoFar = 0;
+  updateStats();
+  drawBoard();
+  setMessage('Executing program...', null);
+
+  for(let i=0;i<program.length;i++){
+    highlightChip(i);
+    const cmd = program[i];
+    const ok = step(cmd);
+    execCountSoFar++;
+    updateStats();
+    drawBoard();
+    if(!ok){
+      setMessage('⚠ Bot hit a hazard or wall. Program halted — try again.', 'fail');
+      running = false;
+      document.getElementById('runBtn').disabled = false;
+      return;
+    }
+    await sleep(450);
+    if(checkWin()){
+      setMessage(`✔ Reached the charge pad with ${collected.size}/${level.batteries.length} batteries collected!`, 'win');
+      running = false;
+      document.getElementById('runBtn').disabled = false;
+      maybeNextLevel();
+      return;
+    }
+  }
+  running = false;
+  document.getElementById('runBtn').disabled = false;
+  if(!checkWin()){
+    setMessage('Program finished, but the bot never reached the charge pad. Adjust and retry.', 'fail');
+  }
+}
+
+function highlightChip(i){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  const chip = document.querySelector(`.chip[data-idx="${i}"]`);
+  if(chip) chip.classList.add('active');
+}
+
+function step(cmd){
+  if(cmd==='L'){ bot.dir = (bot.dir+3)%4; return true; }
+  if(cmd==='R'){ bot.dir = (bot.dir+1)%4; return true; }
+  if(cmd==='F'){
+    let {r,c} = bot;
+    if(bot.dir===0) r--;
+    else if(bot.dir===1) c++;
+    else if(bot.dir===2) r++;
+    else if(bot.dir===3) c--;
+    if(r<0||c<0||r>=level.size||c>=level.size) return false;
+    if(isWall(r,c)) return false;
+    bot.r=r; bot.c=c;
+    if(isHazard(r,c)) return false;
+    const bat = batteryAt(r,c);
+    if(bat) collected.add(key(r,c));
+    return true;
+  }
+  return true;
+}
+
+function checkWin(){
+  return bot.r===level.pad.r && bot.c===level.pad.c;
+}
+
+function maybeNextLevel(){
+  if(levelIdx < LEVELS.length-1){
+    setTimeout(()=>{
+      setMessage(`✔ Level ${levelIdx+1} complete! Loading level ${levelIdx+2}...`, 'win');
+      setTimeout(()=>loadLevel(levelIdx+1), 1400);
+    }, 300);
+  } else {
+    setTimeout(()=>setMessage('🏆 All levels complete! Reset a level or refresh to play again.', 'win'), 300);
+  }
+}
+
+function sleep(ms){ return new Promise(res=>setTimeout(res,ms)); }
+
+document.getElementById('runBtn').addEventListener('click', runProgram);
+
+// ---------- init ----------
+loadLevel(0);
+</script>
+</body>
+</html>
